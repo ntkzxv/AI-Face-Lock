@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { LogOut, ShieldCheck, Package, LayoutDashboard, Bell, Loader2 } from 'lucide-react';
 
-export default function DashboardIndex() {
+export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 

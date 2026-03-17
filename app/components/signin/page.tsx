@@ -18,8 +18,6 @@ export default function FaceIDSignIn() {
     setTimeout(() => {
       setIsScanning(false);
       setScanComplete(true);
-      // ถ้าสแกนเสร็จจริงในอนาคต จะให้เด้งไปหน้า index เลยก็ได้
-      // window.location.href = '/index';
     }, 2000);
   };
 
@@ -38,7 +36,6 @@ export default function FaceIDSignIn() {
         alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
       } else {
         alert('เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ ' + data.full_name);
-        // ใช้ window.location.href แทน router.push เพื่อแก้ปัญหาหน้าไม่เปลี่ยนบน production
         window.location.href = '/dashboard';
       }
     } catch (err) {
