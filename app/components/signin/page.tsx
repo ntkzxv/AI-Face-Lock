@@ -39,7 +39,7 @@ export default function FaceIDSignIn() {
         alert('ไม่พบผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
       } else {
         alert('ยินดีต้อนรับคุณ ' + data.full_name);
-        router.push('/dashboard'); // ไปหน้า Dashboard (ถ้ามี)
+        router.push('/index'); // ไปหน้า Dashboard (ถ้ามี)
       }
     } catch (err) {
       console.error(err);
