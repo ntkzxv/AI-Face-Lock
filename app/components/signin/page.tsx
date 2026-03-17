@@ -39,7 +39,7 @@ export default function FaceIDSignIn() {
       } else {
         alert('เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ ' + data.full_name);
         // ใช้ window.location.href แทน router.push เพื่อแก้ปัญหาหน้าไม่เปลี่ยนบน production
-        window.location.href = '/index';
+        window.location.href = '/dashboard';
       }
     } catch (err) {
       console.error(err);
@@ -87,7 +87,7 @@ export default function FaceIDSignIn() {
               </button>
             </>
           ) : (
-            <button onClick={() => window.location.href='/index'} className="w-full py-5 bg-green-500 text-white font-black rounded-full text-lg block animate-pulse">
+            <button onClick={() => window.location.href='/dashboard'} className="w-full py-5 bg-green-500 text-white font-black rounded-full text-lg block animate-pulse">
               เข้าสู่ระบบสำเร็จ
             </button>
           )}
