@@ -28,9 +28,10 @@ export default function FaceIDSignIn() {
   }, [webcamRef]);
 
   // --- ฟังก์ชัน Login ผ่านตาราง users ---
-  const handleBypassLogin = async () => {
-    if (!testUsername || !testPassword) return alert('กรุณากรอกข้อมูลให้ครบ');
+const handleBypassLogin = async () => {
+    if (!testUsername || !testPassword) return; // ไม่ใช้ alert แล้ว
     setLoading(true);
+    
     try {
       const { data, error } = await supabase
         .from('users')
@@ -40,16 +41,14 @@ export default function FaceIDSignIn() {
         .single();
 
       if (error || !data) {
-        alert('ไม่พบผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        setLoading(false);
       } else {
-        alert('ยินดีต้อนรับคุณ ' + data.full_name);
-        // ใช้ window.location.href เพื่อความชัวร์ในการเปลี่ยนหน้าบน Server
-        window.location.href = '/dashboard'; 
+        setTimeout(() => {
+          window.location.href = '/dashboard?login=success'; 
+        }, 1500); 
       }
     } catch (err) {
       console.error(err);
-      alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
-    } finally {
       setLoading(false);
     }
   };
