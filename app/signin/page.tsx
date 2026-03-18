@@ -18,17 +18,73 @@ export default function FaceIDSignIn() {
   // 3. สร้าง Ref สำหรับ Webcam
   const webcamRef = useRef<Webcam>(null);
 
-  // 4. ฟังก์ชันเริ่มสแกนแบบใช้กล้องจริง
-  const startScan = () => {
+  // 4. ฟังก์ชันเริ่มสแกนของจริง!
+  const startScan = async () => {
+    if (!webcamRef.current) return;
+    
     setScanComplete(false);
     setIsScanning(true);
-    // (ในระบบจริง ตรงนี้จะต้องดึงรูปจาก webcamRef แล้วส่งไป AI ตรวจสอบ)
-    // ตรงนี้ขอใช้ timeout จำลองเวลาประมวลผล 2 วินาทีเหมือนเดิม
-    setTimeout(() => {
-      // (จำลองว่า AI ตรวจสอบผ่าน)
+
+    try {
+      // --- จังหวะที่ 1: ดึงรูปจาก Webcam (Base64) ---
+      const imageSrc = webcamRef.current.getScreenshot();
+      if (!imageSrc) throw new Error("ไม่สามารถจับภาพจากกล้องได้");
+
+      console.log("📸 Captured! Sending to AI...");
+
+      // --- จังหวะที่ 2: ส่งรูปไปให้ Python API (Port 8000) ---
+      const aiResponse = await fetch('http://127.0.0.1:8000/extract-vector', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images: [imageSrc] }) // ส่งไปรูปเดียวพอตอน Login
+      });
+
+      if (!aiResponse.ok) {
+        const errData = await aiResponse.json();
+        throw new Error(errData.error || "AI ประมวลผลหน้าไม่ได้");
+      }
+
+      const { vector: queryVector } = await aiResponse.json();
+      console.log("✅ AI Vector extracted.");
+
+      // --- จังหวะที่ 3: เรียกใช้ RPC ใน Supabase เพื่อหาคนที่หน้าเหมือนที่สุด ---
+      const { data: matchedUsers, error: rpcError } = await supabase.rpc(
+        'match_user_faces', 
+        {
+          query_embedding: queryVector,
+          match_threshold: 0.5, // ค่าความเหมือน ถ้าหน้าไม่ตรงลองปรับเป็น 0.45
+          match_count: 1
+        }
+      );
+
+      if (rpcError) throw rpcError;
+
+      // --- จังหวะที่ 4: ตรวจสอบผลลัพธ์ ---
+      if (matchedUsers && matchedUsers.length > 0) {
+        const user = matchedUsers[0];
+        console.log("🎯 Match Found:", user.full_name, "Similarity:", user.similarity);
+        
+        // สแกนผ่าน!
+        setIsScanning(false);
+        setScanComplete(true);
+        
+        // หน่วงเวลาแป๊บนึงให้คนดู Success Icon แล้วค่อยวาร์ป
+        setTimeout(() => {
+          alert(`เข้าได้ละเว้ยไอเปรตที่ชื่อ ${user.full_name}`);
+          window.location.href = '/dashboard';
+        }, 1500);
+
+      } else {
+        // สแกนไม่ผ่าน (ไม่พบหน้าในระบบ)
+        setIsScanning(false);
+        alert("ไม่เจอหน้ามึง หรือเพราะมึงหน้าหี");
+      }
+
+    } catch (err: any) {
+      console.error(err);
       setIsScanning(false);
-      setScanComplete(true);
-    }, 2000);
+      alert("Error: " + err.message);
+    }
   };
 
   // 5. Callback เมื่อกล้องพร้อมทำงาน

@@ -68,24 +68,67 @@ export default function CameraPage() {
     setIsAutoRunning(true);
   };
 
-  const handleCompleteRegistration = async () => {
+ const handleCompleteRegistration = async () => {
     const rawData = sessionStorage.getItem('temp_user_data');
-    if (!rawData || capturedImages.some(img => img === null)) return;
+    if (!rawData || capturedImages.some(img => img === null)) {
+      alert("ข้อมูลไม่ครบไอสัส ถ่ายรูปให้ครบ 3 มุมก่อน!");
+      return;
+    }
+
     const userData = JSON.parse(rawData);
     setLoading(true);
+
     try {
-      const { error } = await supabase.from('users').insert([{
-        full_name: userData.firstName + " " + userData.lastName,
-        password: userData.password,
-      }]);
-      if (error) throw error;
-      alert("Registration Successful!");
-      sessionStorage.removeItem('temp_user_data');
+      // --- STEP 1: Insert User ---
+      const { data: newUser, error: userError } = await supabase
+        .from('users')
+        .insert([{
+          full_name: userData.firstName + " " + userData.lastName,
+          password: userData.password
+        }])
+        .select('id')
+        .single();
+
+      if (userError) throw userError;
+      const userId = newUser.id;
+
+      // --- STEP 2: Request AI Vector ---
+      const aiResponse = await fetch('http://localhost:8000/extract-vector', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images: capturedImages })
+      });
+
+      if (!aiResponse.ok) {
+        // !!! ถ้า AI พัง ให้รีบลบ User ที่เพิ่งสร้างทิ้งทันที !!!
+        await supabase.from('users').delete().eq('id', userId);
+        throw new Error("AI Processing failed - Cleanup Done");
+      }
+
+      const aiData = await aiResponse.json();
+      const vector = aiData.vector;
+
+      // --- STEP 3: Insert Face Vector ---
+      const { error: faceError } = await supabase
+        .from('user_faces')
+        .insert([{
+          user_id: userId,
+          face_embedding: vector
+        }]);
+
+      if (faceError) {
+        // !!! ถ้าบันทึกหน้าพัง ก็ต้องลบ User ทิ้งเหมือนกัน !!!
+        await supabase.from('users').delete().eq('id', userId);
+        throw faceError;
+      }
+
+      alert("ได้ซักที หวางอิได้ ไอควายเผือก!");
+      sessionStorage.clear();
       router.push('/signin');
+
     } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
+      alert("Error: " + err.message);
+      console.error(err);
     }
   };
 
