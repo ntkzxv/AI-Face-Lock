@@ -29,11 +29,11 @@ export default function LandingPage() {
 
         {/* ฝั่งขวา: Action Buttons (เลียนแบบทรงปุ่มในรูป) */}
         <div className="w-full md:w-80 space-y-4">
-          <Link href="/components/signin" className="group flex items-center justify-center gap-3 w-full py-5 bg-[#FFA494] text-[#111] rounded-full font-bold text-xl hover:bg-white transition-all shadow-xl active:scale-95">
+          <Link href="/signin" className="group flex items-center justify-center gap-3 w-full py-5 bg-[#FFA494] text-[#111] rounded-full font-bold text-xl hover:bg-white transition-all shadow-xl active:scale-95">
             <LogIn className="w-6 h-6" /> เข้าสู่ระบบ
           </Link>
 
-          <Link href="/components/signup" className="group flex items-center justify-center gap-3 w-full py-5 bg-white/5 text-white border border-white/10 rounded-full font-bold text-xl hover:bg-white/10 transition-all active:scale-95">
+          <Link href="/signup" className="group flex items-center justify-center gap-3 w-full py-5 bg-white/5 text-white border border-white/10 rounded-full font-bold text-xl hover:bg-white/10 transition-all active:scale-95">
             <UserPlus className="w-6 h-6" /> สมัครสมาชิก
           </Link>
           

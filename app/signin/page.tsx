@@ -1,6 +1,7 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react'; // 1. เพิ่ม useRef, useCallback
 import Link from 'next/link';
+import Webcam from 'react-webcam'; // 2. Import Webcam library
 import { supabase } from '../lib/supabase'; // ตรวจสอบ path ให้ถูกตามโปรเจกต์คุณ
 import { ArrowLeft, ScanFace, ShieldCheck, Loader2, X, Lock, User } from 'lucide-react';
 
@@ -8,18 +9,32 @@ export default function FaceIDSignIn() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
   const [showTestLogin, setShowTestLogin] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false); // New state
 
   const [testUsername, setTestUsername] = useState('');
   const [testPassword, setTestPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // 3. สร้าง Ref สำหรับ Webcam
+  const webcamRef = useRef<Webcam>(null);
+
+  // 4. ฟังก์ชันเริ่มสแกนแบบใช้กล้องจริง
   const startScan = () => {
+    setScanComplete(false);
     setIsScanning(true);
+    // (ในระบบจริง ตรงนี้จะต้องดึงรูปจาก webcamRef แล้วส่งไป AI ตรวจสอบ)
+    // ตรงนี้ขอใช้ timeout จำลองเวลาประมวลผล 2 วินาทีเหมือนเดิม
     setTimeout(() => {
+      // (จำลองว่า AI ตรวจสอบผ่าน)
       setIsScanning(false);
       setScanComplete(true);
     }, 2000);
   };
+
+  // 5. Callback เมื่อกล้องพร้อมทำงาน
+  const handleUserMedia = useCallback(() => {
+    setIsCameraReady(true);
+  }, []);
 
   const handleBypassLogin = async () => {
     if (!testUsername || !testPassword) {
@@ -50,8 +65,15 @@ export default function FaceIDSignIn() {
     }
   };
 
+  // 6. กำหนดค่ากล้อง (เหมือนหน้า Register)
+  const videoConstraints = {
+    width: 720,
+    height: 720,
+    facingMode: "user"
+  };
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 relative overflow-hidden font-sans">
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-[#FFA494]/10 blur-[120px] rounded-full" />
 
       <div className="max-w-[450px] w-full bg-[#161616] p-8 md:p-12 rounded-[3.5rem] border border-white/5 shadow-2xl relative z-10 text-center">
@@ -60,28 +82,66 @@ export default function FaceIDSignIn() {
             <ArrowLeft className="w-3 h-3" /> Back to home
           </Link>
           <h2 className="text-4xl font-black text-white tracking-tighter italic">AI FACE LOGIN<span className="text-[#FFA494]">.</span></h2>
-          <p className="text-white/40 font-medium">กรุณาวางใบหน้าให้ตรงกับกรอบสแกน</p>
+          <p className="text-white/40 font-medium text-sm">กรุณาวางใบหน้าให้ตรงกับกรอบสแกน</p>
         </div>
 
+        {/* --- ส่วนของกล้อง (Camera Area) --- */}
         <div className="relative aspect-square w-full max-w-[260px] mx-auto mb-10">
-          <div className={`absolute inset-0 border-2 rounded-[3rem] transition-all duration-500 z-20 ${isScanning ? 'border-[#FFA494] shadow-[0_0_30px_rgba(255,164,148,0.3)]' : 'border-white/10'}`} />
-          <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#FFA494] rounded-tl-[2rem] z-30" />
-          <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#FFA494] rounded-tr-[2rem] z-30" />
-          <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#FFA494] rounded-bl-[2rem] z-30" />
-          <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#FFA494] rounded-br-[2rem] z-30" />
+          {/* กรอบสแกน (Border Decor) - แสดงเมื่อกล้องพร้อม */}
+          {isCameraReady && !scanComplete && (
+            <>
+              <div className={`absolute inset-0 border-2 rounded-[3rem] transition-all duration-500 z-20 ${isScanning ? 'border-[#FFA494] shadow-[0_0_30px_rgba(255,164,148,0.3)]' : 'border-white/10'}`} />
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#FFA494] rounded-tl-[2rem] z-30" />
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#FFA494] rounded-tr-[2rem] z-30" />
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#FFA494] rounded-bl-[2rem] z-30" />
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#FFA494] rounded-br-[2rem] z-30" />
+            </>
+          )}
 
+          {/* เส้นสแกน (Scanning Line Animation) */}
           {isScanning && <div className="absolute left-0 right-0 h-1 bg-[#FFA494] shadow-[0_0_15px_#FFA494] z-30 animate-[scan_2s_infinite]" />}
 
-          <div className="w-full h-full bg-black/60 rounded-[3rem] flex items-center justify-center overflow-hidden">
-            {scanComplete ? <ShieldCheck className="w-16 h-16 text-green-400 animate-bounce" /> : <ScanFace className="w-24 h-24 text-white/5" />}
+          {/* พื้นที่แสดงผล (Camera/Result) */}
+          <div className="w-full h-full bg-black/60 rounded-[3rem] flex items-center justify-center overflow-hidden border border-white/5 relative">
+            
+            {scanComplete ? (
+              // สถานะ: สแกนผ่าน
+              <div className="relative z-10 w-full h-full flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                 <ShieldCheck className="w-16 h-16 text-green-400 animate-bounce" />
+              </div>
+            ) : (
+              // สถานะ: เปิดกล้อง
+              <>
+                {/* 7. ใส่ Component Webcam จริง */}
+                <Webcam
+                  audio={false}
+                  ref={webcamRef}
+                  screenshotFormat="image/jpeg"
+                  videoConstraints={videoConstraints}
+                  onUserMedia={handleUserMedia} // เรียก callback เมื่อกล้องพร้อม
+                  mirrored={true} // กระจก
+                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isCameraReady ? 'opacity-100' : 'opacity-0'}`}
+                />
+                
+                {/* แสดงไอคอนรอโหลดถ้ากล้องยังไม่พร้อม */}
+                {!isCameraReady && (
+                  <ScanFace className="w-24 h-24 text-white/5 animate-pulse" />
+                )}
+              </>
+            )}
           </div>
         </div>
+        {/* --- จบส่วนของกล้อง --- */}
 
         <div className="space-y-6">
           {!scanComplete ? (
             <>
-              <button onClick={startScan} disabled={isScanning} className="w-full py-5 bg-[#FFA494] text-black rounded-full font-black text-lg shadow-xl hover:scale-105 active:scale-95 disabled:opacity-50 transition-all">
-                {isScanning ? 'กำลังสแกนใบหน้า...' : 'เริ่มการสแกนใบหน้า'}
+              <button 
+                onClick={startScan} 
+                disabled={isScanning || !isCameraReady} // ปิดปุ่มถ้าสแกนอยู่ หรือกล้องยังไม่พร้อม
+                className="w-full py-5 bg-[#FFA494] text-black rounded-full font-black text-lg shadow-xl hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all"
+              >
+                {!isCameraReady ? 'กำลังโหลดกล้อง...' : isScanning ? 'กำลังสแกนใบหน้า...' : 'เริ่มการสแกนใบหน้า'}
               </button>
               <button onClick={() => setShowTestLogin(true)} className="text-[10px] text-white/20 hover:text-[#FFA494] font-bold uppercase tracking-[0.2em] transition-colors">
                 ( Dev Mode: Bypass with Password )
@@ -95,8 +155,9 @@ export default function FaceIDSignIn() {
         </div>
       </div>
 
+      {/* Test Login Modal (เหมือนเดิม) */}
       {showTestLogin && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm modal-backdrop">
           <div className="bg-[#1c1c1c] w-full max-w-sm rounded-[2.5rem] p-8 border border-white/10 shadow-2xl relative">
             <button onClick={() => setShowTestLogin(false)} className="absolute top-6 right-6 text-white/40 hover:text-white"><X /></button>
             <div className="mb-8">
@@ -120,11 +181,16 @@ export default function FaceIDSignIn() {
         </div>
       )}
 
+      {/* CSS Animation (เหมือนเดิม) */}
       <style jsx global>{`
         @keyframes scan {
           0% { top: 10%; opacity: 0; }
           50% { opacity: 1; }
           100% { top: 90%; opacity: 0; }
+        }
+        /* แก้ไขปัญหา Backdrop modal ซ้อนกัน */
+        .modal-backdrop {
+          z-index: 100 !important;
         }
       `}</style>
     </div>
