@@ -46,3 +46,10 @@ venv/
 .venv/
 __pycache__/
 .env.local
+node_modules/
+.next/
+venv/
+.venv/
+__pycache__/
+.env.local
+.DS_Store
