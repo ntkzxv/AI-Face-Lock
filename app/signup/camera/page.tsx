@@ -71,7 +71,7 @@ export default function CameraPage() {
  const handleCompleteRegistration = async () => {
     const rawData = sessionStorage.getItem('temp_user_data');
     if (!rawData || capturedImages.some(img => img === null)) {
-      alert("ข้อมูลไม่ครบไอสัส ถ่ายรูปให้ครบ 3 มุมก่อน!");
+      alert("โปรดกรอกข้อมูลให้ครบถ้วน");
       return;
     }
 
@@ -122,7 +122,7 @@ export default function CameraPage() {
         throw faceError;
       }
 
-      alert("ได้ซักที หวางอิได้ ไอควายเผือก!");
+      alert("ลงทะเบียนสำเร็จ");
       sessionStorage.clear();
       router.push('/signin');
 

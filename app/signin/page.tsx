@@ -70,14 +70,14 @@ export default function FaceIDSignIn() {
         
         // หน่วงเวลาแป๊บนึงให้คนดู Success Icon แล้วค่อยวาร์ป
         setTimeout(() => {
-          alert(`เข้าได้ละเว้ยไอเปรตที่ชื่อ ${user.full_name}`);
+          alert(`ยินดีต้อนรับเข้าสู่ระบบ คุณ${user.full_name}`);
           window.location.href = '/dashboard';
         }, 1500);
 
       } else {
         // สแกนไม่ผ่าน (ไม่พบหน้าในระบบ)
         setIsScanning(false);
-        alert("ไม่เจอหน้ามึง หรือเพราะมึงหน้าหี");
+        alert("ค้นหาใบหน้าไม่เจอ โปรดลงทะเบียน");
       }
 
     } catch (err: any) {
