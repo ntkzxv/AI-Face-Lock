@@ -1,21 +1,18 @@
-# ใช้ Python เวอร์ชันที่เสถียรกับงาน AI
+# ใช้ Python 3.10-slim เหมือนเดิม
 FROM python:3.10-slim
 
-# ติดตั้ง lib สำหรับ OpenCV (ตัวนี้สำคัญมาก ไม่งั้นรัน AI ไม่ขึ้น)
+# แก้ตรงนี้! เปลี่ยนชื่อ lib เล็กน้อยเพื่อให้เข้ากับ Debian เวอร์ชันใหม่
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# ตั้งโฟลเดอร์ทำงานใน Container
 WORKDIR /app
 
-# ก๊อปไฟล์ requirements ไปลงก่อนเพื่อประหยัดเวลา Build
+# ที่เหลือเหมือนเดิมเป๊ะ
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ก๊อปโค้ดทั้งหมดตามเข้าไป
 COPY . .
 
-# สั่งรัน FastAPI ด้วย Uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
