@@ -1,104 +1,104 @@
 'use client';
-import React, { useState, useRef, useCallback } from 'react'; // 1. เพิ่ม useRef, useCallback
+import React, { useState, useRef, useCallback, useEffect } from 'react'; // เพิ่ม useEffect
 import Link from 'next/link';
-import Webcam from 'react-webcam'; // 2. Import Webcam library
-import { supabase } from '../lib/supabase'; // ตรวจสอบ path ให้ถูกตามโปรเจกต์คุณ
+import Webcam from 'react-webcam';
+import { supabase } from '../lib/supabase';
 import { ArrowLeft, ScanFace, ShieldCheck, Loader2, X, Lock, User } from 'lucide-react';
 
 export default function FaceIDSignIn() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
   const [showTestLogin, setShowTestLogin] = useState(false);
-  const [isCameraReady, setIsCameraReady] = useState(false); // New state
+  const [isCameraReady, setIsCameraReady] = useState(false);
 
   const [testUsername, setTestUsername] = useState('');
   const [testPassword, setTestPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 3. สร้าง Ref สำหรับ Webcam
   const webcamRef = useRef<Webcam>(null);
 
-  // 4. ฟังก์ชันเริ่มสแกนของจริง!
+  // --- ฟังก์ชันหลักในการสแกน (Auto-Loop) ---
   const startScan = async () => {
-    if (!webcamRef.current) return;
+    // ป้องกันการรันซ้อน หรือรันตอนสแกนเสร็จแล้ว
+    if (!webcamRef.current || isScanning || scanComplete) return;
     
-    setScanComplete(false);
     setIsScanning(true);
 
-    try {
-      // --- จังหวะที่ 1: ดึงรูปจาก Webcam (Base64) ---
-      const imageSrc = webcamRef.current.getScreenshot();
-      if (!imageSrc) throw new Error("ไม่สามารถจับภาพจากกล้องได้");
-
-      console.log("📸 Captured! Sending to AI...");
-
-      // --- จังหวะที่ 2: ส่งรูปไปให้ Python API (Port 8000) ---
-      const aiResponse = await fetch('http://127.0.0.1:8000/extract-vector', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: [imageSrc] }) // ส่งไปรูปเดียวพอตอน Login
-      });
-
-      if (!aiResponse.ok) {
-        const errData = await aiResponse.json();
-        throw new Error(errData.error || "AI ประมวลผลหน้าไม่ได้");
+    const runDetection = async () => {
+      // หยุด Loop ถ้าสแกนสำเร็จ หรือหลุดจากหน้าจอ
+      if (!webcamRef.current || scanComplete) {
+        setIsScanning(false);
+        return;
       }
 
-      const { vector: queryVector } = await aiResponse.json();
-      console.log("✅ AI Vector extracted.");
-
-      // --- จังหวะที่ 3: เรียกใช้ RPC ใน Supabase เพื่อหาคนที่หน้าเหมือนที่สุด ---
-      const { data: matchedUsers, error: rpcError } = await supabase.rpc(
-        'match_user_faces', 
-        {
-          query_embedding: queryVector,
-          match_threshold: 0.5, // ค่าความเหมือน ถ้าหน้าไม่ตรงลองปรับเป็น 0.45
-          match_count: 1
+      try {
+        const imageSrc = webcamRef.current.getScreenshot();
+        if (!imageSrc) {
+          setTimeout(runDetection, 1000); // ถ้ายังไม่มีภาพให้รอ 1 วิ
+          return;
         }
-      );
 
-      if (rpcError) throw rpcError;
+        console.log("🔍 Auto-Scanning...");
 
-      // --- จังหวะที่ 4: ตรวจสอบผลลัพธ์ ---
-      if (matchedUsers && matchedUsers.length > 0) {
-        const user = matchedUsers[0];
-        console.log("🎯 Match Found:", user.full_name, "Similarity:", user.similarity);
-        
-        // สแกนผ่าน!
-        setIsScanning(false);
-        setScanComplete(true);
-        
-        // หน่วงเวลาแป๊บนึงให้คนดู Success Icon แล้วค่อยวาร์ป
-        setTimeout(() => {
-          alert(`ยินดีต้อนรับเข้าสู่ระบบ คุณ${user.full_name}`);
-          window.location.href = '/dashboard';
-        }, 1500);
+        const aiResponse = await fetch('http://127.0.0.1:8000/extract-vector', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ images: [imageSrc] })
+        });
 
-      } else {
-        // สแกนไม่ผ่าน (ไม่พบหน้าในระบบ)
-        setIsScanning(false);
-        alert("ค้นหาใบหน้าไม่เจอ โปรดลงทะเบียน");
+        if (aiResponse.ok) {
+          const { vector: queryVector } = await aiResponse.json();
+
+          const { data: matchedUsers, error: rpcError } = await supabase.rpc(
+            'match_user_faces', 
+            {
+              query_embedding: queryVector,
+              match_threshold: 0.83, // ความโหดระดับเดิม
+              match_count: 1
+            }
+          );
+
+          if (!rpcError && matchedUsers && matchedUsers.length > 0) {
+            const user = matchedUsers[0];
+            console.log("🎯 Match Found:", user.full_name);
+            
+            setScanComplete(true);
+            setIsScanning(false);
+            
+            setTimeout(() => {
+              alert(`ยินดีต้อนรับเข้าสู่ระบบ คุณ${user.full_name}`);
+              window.location.href = '/dashboard';
+            }, 800);
+            return; // ออกจาก Loop
+          }
+        }
+
+        // ถ้ายังไม่เจอ หรือ Error ให้วนใหม่ทุกๆ 0.6 วินาที
+        setTimeout(runDetection, 600);
+
+      } catch (err) {
+        console.error("Scan error:", err);
+        setTimeout(runDetection, 2000); // ถ้า Error หนักๆ ให้รอ 2 วิ
       }
+    };
 
-    } catch (err: any) {
-      console.error(err);
-      setIsScanning(false);
-      alert("Error: " + err.message);
-    }
+    runDetection();
   };
 
-  // 5. Callback เมื่อกล้องพร้อมทำงาน
+  // --- จุดสำคัญ: สั่งเริ่มสแกนอัตโนมัติเมื่อกล้องพร้อม ---
+  useEffect(() => {
+    if (isCameraReady && !isScanning && !scanComplete) {
+      startScan();
+    }
+  }, [isCameraReady]); // ทำงานเมื่อสถานะกล้องเปลี่ยน
+
   const handleUserMedia = useCallback(() => {
     setIsCameraReady(true);
   }, []);
 
   const handleBypassLogin = async () => {
-    if (!testUsername || !testPassword) {
-      return alert('กรุณากรอกข้อมูลให้ครบ');
-    }
-
+    if (!testUsername || !testPassword) return alert('กรุณากรอกข้อมูลให้ครบ');
     setLoading(true);
-
     try {
       const { data, error } = await supabase
         .from('users')
@@ -110,7 +110,7 @@ export default function FaceIDSignIn() {
       if (error || !data) {
         alert('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
       } else {
-        alert('เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ ' + data.first_name);
+        alert('เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ ' + data.full_name);
         window.location.href = '/dashboard';
       }
     } catch (err) {
@@ -121,7 +121,6 @@ export default function FaceIDSignIn() {
     }
   };
 
-  // 6. กำหนดค่ากล้อง (เหมือนหน้า Register)
   const videoConstraints = {
     width: 720,
     height: 720,
@@ -138,12 +137,10 @@ export default function FaceIDSignIn() {
             <ArrowLeft className="w-3 h-3" /> Back to home
           </Link>
           <h2 className="text-4xl font-black text-white tracking-tighter italic">AI FACE LOGIN<span className="text-[#FFA494]">.</span></h2>
-          <p className="text-white/40 font-medium text-sm">กรุณาวางใบหน้าให้ตรงกับกรอบสแกน</p>
+          <p className="text-white/40 font-medium text-sm">ระบบกำลังตรวจสอบใบหน้าอัตโนมัติ</p>
         </div>
 
-        {/* --- ส่วนของกล้อง (Camera Area) --- */}
         <div className="relative aspect-square w-full max-w-[260px] mx-auto mb-10">
-          {/* กรอบสแกน (Border Decor) - แสดงเมื่อกล้องพร้อม */}
           {isCameraReady && !scanComplete && (
             <>
               <div className={`absolute inset-0 border-2 rounded-[3rem] transition-all duration-500 z-20 ${isScanning ? 'border-[#FFA494] shadow-[0_0_30px_rgba(255,164,148,0.3)]' : 'border-white/10'}`} />
@@ -154,64 +151,53 @@ export default function FaceIDSignIn() {
             </>
           )}
 
-          {/* เส้นสแกน (Scanning Line Animation) */}
           {isScanning && <div className="absolute left-0 right-0 h-1 bg-[#FFA494] shadow-[0_0_15px_#FFA494] z-30 animate-[scan_2s_infinite]" />}
 
-          {/* พื้นที่แสดงผล (Camera/Result) */}
           <div className="w-full h-full bg-black/60 rounded-[3rem] flex items-center justify-center overflow-hidden border border-white/5 relative">
-            
             {scanComplete ? (
-              // สถานะ: สแกนผ่าน
               <div className="relative z-10 w-full h-full flex items-center justify-center bg-black/80 backdrop-blur-sm">
                  <ShieldCheck className="w-16 h-16 text-green-400 animate-bounce" />
               </div>
             ) : (
-              // สถานะ: เปิดกล้อง
               <>
-                {/* 7. ใส่ Component Webcam จริง */}
                 <Webcam
                   audio={false}
                   ref={webcamRef}
                   screenshotFormat="image/jpeg"
                   videoConstraints={videoConstraints}
-                  onUserMedia={handleUserMedia} // เรียก callback เมื่อกล้องพร้อม
-                  mirrored={true} // กระจก
+                  onUserMedia={handleUserMedia}
+                  mirrored={true}
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${isCameraReady ? 'opacity-100' : 'opacity-0'}`}
                 />
-                
-                {/* แสดงไอคอนรอโหลดถ้ากล้องยังไม่พร้อม */}
-                {!isCameraReady && (
-                  <ScanFace className="w-24 h-24 text-white/5 animate-pulse" />
-                )}
+                {!isCameraReady && <ScanFace className="w-24 h-24 text-white/5 animate-pulse" />}
               </>
             )}
           </div>
         </div>
-        {/* --- จบส่วนของกล้อง --- */}
 
         <div className="space-y-6">
           {!scanComplete ? (
-            <>
-              <button 
-                onClick={startScan} 
-                disabled={isScanning || !isCameraReady} // ปิดปุ่มถ้าสแกนอยู่ หรือกล้องยังไม่พร้อม
-                className="w-full py-5 bg-[#FFA494] text-black rounded-full font-black text-lg shadow-xl hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 transition-all"
-              >
-                {!isCameraReady ? 'กำลังโหลดกล้อง...' : isScanning ? 'กำลังสแกนใบหน้า...' : 'เริ่มการสแกนใบหน้า'}
-              </button>
-              <button onClick={() => setShowTestLogin(true)} className="text-[10px] text-white/20 hover:text-[#FFA494] font-bold uppercase tracking-[0.2em] transition-colors">
+            <div className="flex flex-col items-center gap-4">
+               {isScanning ? (
+                 <div className="flex items-center gap-2 text-[#FFA494] font-bold animate-pulse">
+                   <Loader2 className="w-4 h-4 animate-spin" />
+                   <span className="text-xs uppercase tracking-[0.2em]">Searching for profile...</span>
+                 </div>
+               ) : (
+                 <p className="text-white/20 text-[10px] uppercase tracking-[0.2em]">Initializing AI Engine...</p>
+               )}
+              <button onClick={() => setShowTestLogin(true)} className="text-[10px] text-white/20 hover:text-[#FFA494] font-bold uppercase tracking-[0.2em] transition-colors mt-4">
                 ( Dev Mode: Bypass with Password )
               </button>
-            </>
+            </div>
           ) : (
-            <button onClick={() => window.location.href = '/dashboard'} className="w-full py-5 bg-green-500 text-white font-black rounded-full text-lg block animate-pulse">
-              เข้าสู่ระบบสำเร็จ
-            </button>
+            <div className="w-full py-5 bg-green-500/10 border border-green-500/20 text-green-400 font-black rounded-full text-sm tracking-[0.3em] animate-pulse">
+              ACCESS GRANTED
+            </div>
           )}
         </div>
       </div>
 
-      {/* Test Login Modal (เหมือนเดิม) */}
       {showTestLogin && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm modal-backdrop">
           <div className="bg-[#1c1c1c] w-full max-w-sm rounded-[2.5rem] p-8 border border-white/10 shadow-2xl relative">
@@ -237,15 +223,13 @@ export default function FaceIDSignIn() {
         </div>
       )}
 
-      {/* CSS Animation (เหมือนเดิม) */}
       <style jsx global>{`
         @keyframes scan {
           0% { top: 10%; opacity: 0; }
           50% { opacity: 1; }
           100% { top: 90%; opacity: 0; }
         }
-        /* แก้ไขปัญหา Backdrop modal ซ้อนกัน */
-        .modal-backdrop {
+        .modal-backdrop { 
           z-index: 100 !important;
         }
       `}</style>
