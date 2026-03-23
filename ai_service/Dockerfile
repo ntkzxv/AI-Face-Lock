@@ -1,15 +1,15 @@
-# ใช้ Python 3.10-slim เหมือนเดิม
 FROM python:3.10-slim
 
-# แก้ตรงนี้! เปลี่ยนชื่อ lib เล็กน้อยเพื่อให้เข้ากับ Debian เวอร์ชันใหม่
+# เพิ่ม build-essential เพื่อให้มี g++ ไว้คอมไพล์ insightface
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
+    build-essential \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# ที่เหลือเหมือนเดิมเป๊ะ
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
