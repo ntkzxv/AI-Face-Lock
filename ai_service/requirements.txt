@@ -7,3 +7,5 @@ insightface
 onnxruntime
 supabase
 pydantic
+deepface
+tf-keras
