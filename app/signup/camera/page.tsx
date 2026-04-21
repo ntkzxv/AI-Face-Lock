@@ -93,7 +93,8 @@ export default function CameraPage() {
       const userId = newUser.id;
 
       // --- STEP 2: Request AI Vector ---
-      const aiResponse = await fetch('http://127.0.0.1:8000/extract-vector', {
+      const ai_url = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://127.0.0.1:8000';
+      const aiResponse = await fetch(`${ai_url}/extract-vector`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ images: capturedImages })
