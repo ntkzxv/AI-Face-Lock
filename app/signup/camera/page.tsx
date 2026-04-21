@@ -47,7 +47,7 @@ export default function CameraPage() {
 
   useEffect(() => {
     if (isAutoRunning && isCameraOpen && !isFreezing && currentStep < 3 && capturedImages[currentStep] === null) {
-      let timer = 3;
+      let timer = 5;
       setCountdown(timer);
       const interval = setInterval(() => {
         timer -= 1;
