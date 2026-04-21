@@ -53,7 +53,7 @@ export default function FaceIDSignIn() {
             'match_user_faces', 
             {
               query_embedding: queryVector,
-              match_threshold: 0.83, // ความโหดระดับเดิม
+              match_threshold: 0.6, // ความโหดระดับเดิม
               match_count: 1
             }
           );

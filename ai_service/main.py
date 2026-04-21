@@ -35,22 +35,26 @@ async def extract_vector(payload: dict = Body(...)):
             nparr = np.frombuffer(base64.b64decode(encoded_data), np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-            # 💥 2. Resize รูปภาพให้เล็กลง (เหลือ 160x160) เพื่อประหยัด RAM มหาศาล
-            img = cv2.resize(img, (160, 160))
-
-            # 💥 3. ใช้โมเดล SFace (เบาและกินแรมน้อยกว่า ArcFace มาก)
+            # 3. ใช้โมเดล SFace (เบาและกินแรมน้อยกว่า ArcFace มาก)
+            # ไม่ต้อง Resize เอง ปล่อยให้ DeepFace จัดการเพื่อความแม่นยำสูงสุด
             objs = DeepFace.represent(
                 img_path=img, 
                 model_name='SFace', 
                 enforce_detection=False,
-                detector_backend='opencv'
+                detector_backend='opencv' # หรือใช้ 'retinaface' ถ้าต้องการความแม่นยำสูงสุด
             )
             
-            embedding = objs[0]["embedding"]
-            all_embeddings.append(embedding)
-            print(f"✅ Image {idx+1} processed (Vector size: {len(embedding)})")
+            if len(objs) > 0:
+                embedding = objs[0]["embedding"]
+                all_embeddings.append(embedding)
+                print(f"✅ Image {idx+1} processed (Vector size: {len(embedding)})")
+            else:
+                print(f"⚠️ Image {idx+1}: No face detected")
 
-        # 4. หาค่าเฉลี่ยของ Vector (จะได้ Vector ขนาด 128 มิติ)
+        if not all_embeddings:
+            return JSONResponse(status_code=400, content={"error": "No face detected in any images"})
+
+        # 4. หาค่าเฉลี่ยของ Vector
         avg_vector = np.mean(all_embeddings, axis=0).tolist()
         
         print(f"🚀 Success! Sending vector of length: {len(avg_vector)}")
@@ -63,6 +67,5 @@ async def extract_vector(payload: dict = Body(...)):
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# สำหรับเทสในเครื่องตัวเอง (ถ้าต้องการ)
-# if __name__ == "__main__":
-#    uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)
