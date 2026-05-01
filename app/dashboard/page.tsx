@@ -65,7 +65,7 @@ export default function AIControlCenter() {
 
   const handleLogout = () => {
     localStorage.removeItem('wastebid_user'); 
-    window.location.href = '/auth/login';
+    window.location.href = '/';
   };
 
   if (loading) return (
